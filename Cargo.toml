@@ -1,0 +1,22 @@
+[package]
+name = "iactix-web"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+actix-web = "4.11.0"
+actix-ws = "0.3.0"
+tokio = { version = "1.47.1", features = ["rt", "rt-multi-thread", "macros"] }
+derive_more = "2.0.1"
+imacro = {path = "src/imacro"}
+serde = { version = "1.0.219", features = ["derive"] }
+env_logger = "0.11.8"
+log = "0.4"
+serde_json = "1"
+futures = "0.3"
+syn = "2.0.106"
+futures-util = "0.3.31"
+sea-orm = { version = "1.1.14" ,features = ["sqlx-mysql","runtime-actix-rustls"]}
+dotenvy = "0.15.7"
+chrono = "0.4.41"
+
