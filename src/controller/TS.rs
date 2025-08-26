@@ -13,9 +13,13 @@ use serde::{Deserialize, Serialize};
 
 
 
+use sea_orm::QueryFilter;
+use sea_orm::ColumnTrait;
+use std::collections::HashMap;
+use sea_orm::EntityTrait;
+
 #[auto_config]
 mod routes {
-    use std::collections::HashMap;
 
     #[get("/")]
     async fn index() -> impl Responder {
@@ -104,7 +108,7 @@ mod routes {
         map
     }
     // 数据结构：用户及文章
-    #[derive(serde::Serialize)]
+    #[derive(serde::Serialize,Default,JSON)]
     struct UserWithPosts {
         id: i32,
         username: String,
@@ -121,45 +125,64 @@ mod routes {
         created_at: chrono::DateTime<chrono::Utc>,
     }
     use crate::entity::{User,Post};
-    #[get("/index5")]
-    // #[body]
-    async fn index5(data: web::Data<sea_orm::DatabaseConnection>, path: web::Path<i32>) ->impl Responder {
+    #[get("/index5/{path}")]
+    async fn index5(data: web::Data<sea_orm::DatabaseConnection>, path: web::Path<i32>) ->UserWithPosts {
         let user_id = path.into_inner();
 
         // 查询用户
-        let user = User::find_by_id(user_id)
+        let userResult = User::Entity::find_by_id(user_id)
             .one(data.get_ref())
-            .await
-            .expect("Failed to fetch user")
-            .ok_or_else(|| HttpResponse::NotFound().body("User not found"))?;
+            .await;
+
+        let user = match userResult {
+            Ok(mut user) => {
+                match user {
+                    Some(u) => {
+                        u
+                    },
+                    None => {
+                        return UserWithPosts::default();
+                    }
+                }
+            },
+            Err(error) => {
+                println!("{}", error);
+                return UserWithPosts::default();
+            }
+        };
+
 
         // 查询该用户的所有文章
-        let posts = Post::find()
+        let posts_result = Post::Entity::find()
             .filter(Post::Column::UserId.eq(user_id))
             .all(data.get_ref())
             .await
-            .expect("Failed to fetch posts");
+            ;
 
-        // 转换为响应格式
-        let posts_data: Vec<PostData> = posts
-            .into_iter()
-            .map(|p| PostData {
-                id: p.id,
-                title: p.title,
-                content: p.content,
-                created_at: p.created_at,
-            })
-            .collect();
+        if let Ok(posts)=posts_result{
 
-        let user_with_posts = UserWithPosts {
-            id: user.id,
-            username: user.username,
-            email: user.email,
-            created_at: user.created_at,
-            posts: posts_data,
-        };
+            // 转换为响应格式
+            let posts_data: Vec<PostData> = posts
+                .into_iter()
+                .map(|p| PostData {
+                    id: p.id,
+                    title: p.title,
+                    content: p.content,
+                    created_at: p.created_at,
+                })
+                .collect();
 
-        HttpResponse::Ok().json(user_with_posts)
+            let user_with_posts = UserWithPosts {
+                id: user.id,
+                username: user.username,
+                email: user.email,
+                created_at: user.created_at,
+                posts: posts_data,
+            };
+            return user_with_posts;
+        }else{
+            return UserWithPosts::default();
+        }
     }
 
 

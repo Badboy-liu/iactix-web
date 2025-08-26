@@ -1,7 +1,7 @@
 use sea_orm::entity::prelude::*;
 use chrono::DateTime;
 use chrono::Utc;
-
+use sea_orm::EntityTrait;
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, serde::Serialize)]
 #[sea_orm(table_name = "posts")]
 pub struct Model {

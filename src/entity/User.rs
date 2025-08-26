@@ -3,7 +3,7 @@ use serde::Serialize;
 // 生成实体
 use chrono::DateTime;
 use chrono::Utc;
-
+use sea_orm::EntityTrait;
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, serde::Serialize)]
 #[sea_orm(table_name = "users")]
 pub struct Model {
