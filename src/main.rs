@@ -12,6 +12,7 @@ use crate::controller::TS;
 use actix_ws::AggregatedMessage;
 use futures_util::StreamExt as _;
 use sea_orm::Database;
+use tracing_subscriber::FmtSubscriber;
 
 // use imacro::register_modules as other_register_modules;
 mod controller;
@@ -78,7 +79,8 @@ async fn echo(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, Er
 #[actix_web::main]
 async fn main() -> std::io::Result<()>{
     unsafe {
-        std::env::set_var("RUST_LOG", "info");
+        // std::env::set_var("RUST_LOG", "info");
+        std::env::set_var("RUST_LOG", "debug");
         std::env::set_var("RUST_BACKTRACE", "1");
     }
     env_logger::init();
@@ -91,6 +93,13 @@ async fn main() -> std::io::Result<()>{
     let database_url = "sqlite:app.db";
 
     let conn = Database::connect(&db_url).await.unwrap();
+    // 初始化 tracing 日志
+    let subscriber = FmtSubscriber::builder()
+        .with_max_level(tracing::Level::DEBUG) // 输出 debug 及以上日志
+        .finish();
+
+    tracing::subscriber::set_global_default(subscriber)
+        .expect("setting default subscriber failed");
 
 
     HttpServer::new(move || {

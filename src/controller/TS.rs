@@ -7,7 +7,7 @@ use actix_web::error;
 use actix_web::web::Path;
 use actix_web::{Result, web};
 use derive_more::derive::{Display, Error};
-use imacro::{JSON, auto_config,body};
+use imacro::{JSON, auto_config,body,with_txn};
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 
@@ -124,14 +124,19 @@ mod routes {
         content: String,
         created_at: chrono::DateTime<chrono::Utc>,
     }
+    use sea_orm::DatabaseConnection;
+    use sea_orm::{DatabaseTransaction, DbErr};
+    use sea_orm::TransactionTrait;
+
     use crate::entity::{User,Post};
     #[get("/index5/{path}")]
-    async fn index5(data: web::Data<sea_orm::DatabaseConnection>, path: web::Path<i32>) ->UserWithPosts {
+    #[with_txn]
+    // #[body]
+    async fn index5(req: HttpRequest, path: web::Path<i32>) ->UserWithPosts {
         let user_id = path.into_inner();
-
         // 查询用户
         let userResult = User::Entity::find_by_id(user_id)
-            .one(data.get_ref())
+            .one(conn.get_ref())
             .await;
 
         let user = match userResult {
@@ -150,12 +155,13 @@ mod routes {
                 return UserWithPosts::default();
             }
         };
+        format!("Got {:?} users", user);
 
 
         // 查询该用户的所有文章
         let posts_result = Post::Entity::find()
             .filter(Post::Column::UserId.eq(user_id))
-            .all(data.get_ref())
+            .all(conn.get_ref())
             .await
             ;
 
@@ -183,6 +189,7 @@ mod routes {
         }else{
             return UserWithPosts::default();
         }
+
     }
 
 

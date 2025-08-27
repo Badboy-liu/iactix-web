@@ -1,7 +1,7 @@
 use proc_macro::TokenStream;
 use quote::quote;
 
-use syn::{parse_macro_input, ItemMod, ItemFn, Attribute, ReturnType, Type};
+use syn::{parse_macro_input, ItemMod, ItemFn, Attribute, ReturnType, Type, PatType, FnArg, Pat, PathArguments};
 // #[macro_use]
 // #[macro_export]
 // macro_rules! register_modules {
@@ -33,7 +33,51 @@ pub fn JSON(input: TokenStream) -> TokenStream {
     genc.into()
 }
 
+#[proc_macro_attribute]
+pub fn with_txn(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    let func = parse_macro_input!(item as ItemFn);
+    let sig = &func.sig;
+    let vis = &func.vis;
+    let block = &func.block;
 
+    // 查找第一个参数作为数据库连接
+    let db_arg_ident = sig.inputs.iter().find_map(|arg| {
+        if let FnArg::Typed(PatType { pat, .. }) = arg {
+            if let Pat::Ident(pat_ident) = &**pat {
+                Some(pat_ident.ident.clone())
+            } else { None }
+        } else { None }
+    }).expect("函数必须有一个数据库连接参数，如 conn: web::Data<DatabaseConnection>");
+
+    // 生成宏展开代码
+    let expanded = quote! {
+        #vis #sig {
+            let conn: web::Data<DatabaseConnection> =
+    req.app_data::<web::Data<DatabaseConnection>>()
+        .expect("DatabaseConnection not initialized").clone();;
+            // 开启事务
+            let txn = conn.begin().await;
+            if let Err(t) =txn{
+                panic!("无法开启事物");
+            }
+            let t = txn.unwrap();
+
+            // 执行原函数体
+            let result = #block;
+            // 提交事务
+            if let Ok(ct) =t.commit().await{
+                // 返回结果
+                result
+            }else{
+                t.rollback().await;
+                panic!("无法提交事物");
+            }
+
+        }
+    };
+
+    expanded.into()
+}
 
 
 
